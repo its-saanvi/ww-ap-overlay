@@ -1,6 +1,6 @@
 local waywall = require("waywall")
-local utils = require("utils")
-local json = require("json.json")
+local utils = require("ww_ap_overlay.utils")
+local json = require("ww_ap_overlay.json.json")
 
 local M = {}
 
