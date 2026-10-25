@@ -1,4 +1,5 @@
 local utils = require("ww_ap_overlay.utils")
+local waywall = require("waywall")
 local ww_command_line = require("ww_command_line")
 local all_portals_overlay = require("ww_ap_overlay.all_portals_overlay")
 
@@ -123,7 +124,9 @@ M.setup = function(config, cfg)
 		Log:error("Could not create AllPortalsOverlay instance.")
 		return
 	end
-	ap_overlay:start_server()
+	waywall.listen("load", function()
+		ap_overlay:start_server()
+	end)
 
 	local ww_cli_cfg = {
 		start_key = user_config.ww_cli.start_key,
