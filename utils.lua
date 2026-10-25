@@ -1,3 +1,5 @@
+local waywall = require("waywall")
+
 local M = {}
 
 --- @param path string | nil
@@ -11,7 +13,7 @@ M.normalize_path = function(path)
 		return nil
 	end
 	path = path:gsub("~", userhome)
-	path = path:gsub("(.*)/", "%1")
+	path = path:gsub("(.*)/$", "%1")
 	return path
 end
 
@@ -36,6 +38,15 @@ M.get_parent_dir = function(path)
 	end
 
 	return parent
+end
+
+M.make_curl_request_for_image = function()
+	local handle = io.popen("curl -sS http://localhost:5002/image")
+	if not handle then
+		Log:error("Could not make curl request for image. Error: " .. handle)
+		return
+	end
+	handle:close()
 end
 
 return M

@@ -1,5 +1,3 @@
-local waywall = require("waywall")
-
 local M = {}
 
 --- @enum LogLevel
@@ -22,7 +20,6 @@ LogLevel = {
 Logger = {}
 
 function Logger:__log_error(msg)
-	waywall.text(msg, { x = self.__cfg.overlay.x, y = self.__cfg.overlay.y })
 	error(msg)
 end
 
@@ -32,7 +29,7 @@ end
 
 function Logger.new(cfg)
 	local self = setmetatable({}, { __index = Logger })
-	self.level = LogLevel.INFO
+	self.level = LogLevel.DEBUG
 	self.__cfg = cfg
 	return self
 end

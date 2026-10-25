@@ -15,11 +15,35 @@ Hotkeys = {
 	prev = "Page_Down",
 	reset = "F12",
 	solve = "F9",
+	show_overlay = "N",
+	hide_overlay = "M",
 }
 
---- @class OverlayConfig
+--- @class OverlayTextConfig
 --- @field x number
 --- @field y number
+--- @field color string | nil
+--- @field size number | nil
+--- @field depth number | nil
+--- @field shader string | nil
+OverlayTextConfig = {}
+
+--- @class DstConfig
+--- @field x number
+--- @field y number
+--- @field w number
+--- @field h number
+DstConfig = {}
+
+--- @class OverlayImageConfig
+--- @field dst DstConfig
+--- @field depth number | nil
+--- @field shader string | nil
+OverlayImageConfig = {}
+
+--- @class OverlayConfig
+--- @field text OverlayTextConfig
+--- @field image OverlayImageConfig | nil
 OverlayConfig = {}
 
 --- @class Config
@@ -45,8 +69,20 @@ Config = {
 	},
 	hotkeys = Hotkeys,
 	overlay = {
-		x = 1620,
-		y = 780,
+		text = {
+			x = 1620,
+			y = 780,
+			size = 7,
+			color = "#FFFFFF",
+		},
+		image = {
+			dst = {
+				x = 1620,
+				y = 780,
+				w = 400,
+				h = 300,
+			},
+		},
 	},
 }
 
@@ -70,6 +106,9 @@ local parse_hotkeys = function(hotkeys)
 		next = hotkeys.next or Config.hotkeys.next,
 		prev = hotkeys.prev or Config.hotkeys.prev,
 		reset = hotkeys.reset or Config.hotkeys.reset,
+		solve = hotkeys.solve or Config.hotkeys.solve,
+		show_overlay = hotkeys.show_overlay or Config.hotkeys.show_overlay,
+		hide_overlay = hotkeys.hide_overlay or Config.hotkeys.hide_overlay,
 	}
 end
 
@@ -94,6 +133,47 @@ local parse_ww_cli_config = function(ww_cli_config)
 	}
 end
 
+--- @param overlay_text_config OverlayTextConfig
+--- @return OverlayTextConfig
+local parse_overlay_text_config = function(overlay_text_config)
+	return {
+		x = overlay_text_config.x or Config.overlay.text.x,
+		y = overlay_text_config.y or Config.overlay.text.y,
+		size = overlay_text_config.size or Config.overlay.text.size,
+		color = overlay_text_config.color or Config.overlay.text.color,
+	}
+end
+
+--- @param dst_config DstConfig
+--- @return DstConfig
+local parse_dst_config = function(dst_config)
+	return {
+		x = dst_config.x or Config.overlay.image.dst.x,
+		y = dst_config.y or Config.overlay.image.dst.y,
+		w = dst_config.w or Config.overlay.image.dst.w,
+		h = dst_config.h or Config.overlay.image.dst.h,
+	}
+end
+
+--- @param overlay_image_config OverlayImageConfig
+--- @return OverlayImageConfig
+local parse_overlay_image_config = function(overlay_image_config)
+	return {
+		dst = overlay_image_config.dst and parse_dst_config(overlay_image_config.dst) or Config.overlay.image.dst,
+		depth = overlay_image_config.depth or Config.overlay.image.depth,
+		shader = overlay_image_config.shader or Config.overlay.image.shader,
+	}
+end
+
+--- @param overlay_config OverlayConfig
+--- @return OverlayConfig
+local parse_overlay_config = function(overlay_config)
+	return {
+		text = overlay_config.text and parse_overlay_text_config(overlay_config.text) or Config.overlay.text,
+		image = overlay_config.image and parse_overlay_image_config(overlay_config.image) or Config.overlay.image,
+	}
+end
+
 --- @param cfg Config
 --- @return Config | nil
 local parse_config = function(cfg)
@@ -103,6 +183,7 @@ local parse_config = function(cfg)
 		overlay_binary = utils.normalize_path(cfg.overlay_binary or Config.overlay_binary),
 		hotkeys = cfg.hotkeys and parse_hotkeys(cfg.hotkeys) or Config.hotkeys,
 		ww_cli = parse_ww_cli_config(cfg.ww_cli or Config.ww_cli),
+		overlay = cfg.overlay and parse_overlay_config(cfg.overlay) or Config.overlay,
 	}
 	-- Check if overlay_path and python_path are set OR overlay_binary is set.
 	if (not config.overlay_path or not config.python_path) and not config.overlay_binary then
@@ -140,16 +221,15 @@ M.setup = function(config, cfg)
 		commands = {
 			-- apnextsh <ring number> <x> <y>
 			["apnextsh"] = function(args)
-				all_portals_overlay:input_next_stronghold(args)
+				ap_overlay:input_next_stronghold(args)
 			end,
 			-- apring <x> <y>
 			["apring"] = function(args)
-				all_portals_overlay:check_ring(args)
+				ap_overlay:check_ring(args)
 			end,
 		},
 		arbitrary_command = function(key) end,
 	}
-	ww_command_line.setup(config, ww_cli_cfg)
 	config.actions[user_config.hotkeys.next] = function()
 		ap_overlay:next()
 	end
@@ -159,6 +239,16 @@ M.setup = function(config, cfg)
 	config.actions[user_config.hotkeys.reset] = function()
 		ap_overlay:reset()
 	end
+	config.actions[user_config.hotkeys.solve] = function()
+		ap_overlay:solve()
+	end
+	config.actions[user_config.hotkeys.show_overlay] = function()
+		ap_overlay:overlay_update()
+	end
+	config.actions[user_config.hotkeys.hide_overlay] = function()
+		ap_overlay:overlay_hide()
+	end
+	ww_command_line.setup(config, ww_cli_cfg)
 end
 
 return M
