@@ -1,6 +1,6 @@
 local utils = require("utils")
 local ww_command_line = require("ww_command_line")
-local all_portals_overlay = require("all_portals_overlay")
+local all_portals_overlay = require("ww_ap_overlay.all_portals_overlay")
 
 local M = {}
 
