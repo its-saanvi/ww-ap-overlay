@@ -1,5 +1,4 @@
 local utils = require("utils")
-local server = require("server")
 local ww_command_line = require("ww_command_line")
 local all_portals_overlay = require("all_portals_overlay")
 
@@ -115,10 +114,16 @@ end
 M.setup = function(config, cfg)
 	local user_config = parse_config(cfg)
 	if not user_config then
+		Log:error("Could not parse config.")
 		return
 	end
 
-	server.start_server(user_config)
+	local ap_overlay = AllPortalsOverlay.new(user_config)
+	if not ap_overlay then
+		Log:error("Could not create AllPortalsOverlay instance.")
+		return
+	end
+	ap_overlay:start_server()
 
 	local ww_cli_cfg = {
 		start_key = user_config.ww_cli.start_key,
@@ -143,13 +148,13 @@ M.setup = function(config, cfg)
 	}
 	ww_command_line.setup(config, ww_cli_cfg)
 	config.actions[user_config.hotkeys.next] = function()
-		all_portals_overlay:next()
+		ap_overlay:next()
 	end
 	config.actions[user_config.hotkeys.prev] = function()
-		all_portals_overlay:prev()
+		ap_overlay:prev()
 	end
 	config.actions[user_config.hotkeys.reset] = function()
-		all_portals_overlay:reset()
+		ap_overlay:reset()
 	end
 end
 
