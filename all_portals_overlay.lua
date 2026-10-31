@@ -1,6 +1,6 @@
 local waywall = require("waywall")
 local utils = require("ww_ap_overlay.utils")
-local json = require("ww_ap_overlay.json.json")
+local json = require("json.json")
 
 local M = {}
 
@@ -31,32 +31,37 @@ Strongholds = {
 SceneObj = {}
 
 --- @class AllPortalsOverlay
---- @field __server_cmd string
 --- @field __ring_cmd string
 --- @field __solve_cmd string
 --- @field __reset_cmd string
 --- @field __next_cmd string
 --- @field __prev_cmd string
+--- @field __add_sh_cmd string
+--- @field __remove_sh_cmd string
+--- @field __save_png_cmd string
 --- @field __overlay_image_path string
 --- @field __cfg Config
 --- @field __strongholds Strongholds
 --- @field __output_obj SceneObj
 --- @field __output_img SceneObj
 --- @field new fun(cfg: Config): AllPortalsOverlay | nil
+--- @field read_session_strongholds fun(self, filepath: string)
+--- @field plot_stronghold_list_at_startup fun(self)
 --- @field strongholds_is_full fun(strongholds: Strongholds): boolean
---- @field start_server fun(self)
 --- @field solve fun(self)
---- @field input_next_stronghold fun(self, args: string[])
+--- @field input_stronghold fun(self, args: string[])
 --- @field check_ring fun(self, args: string[])
 --- @field reset fun(self)
 --- @field next fun(self)
 --- @field prev fun(self)
 --- @field overlay_update fun(self)
 --- @field overlay_hide fun(self)
+--- @field save_png fun(self)
 AllPortalsOverlay = {}
 
 AllPortalsOverlay.new = function(cfg)
 	local self = setmetatable({}, { __index = AllPortalsOverlay })
+	self.__cfg = cfg
 	local server_cmd = ""
 	local ring_cmd = ""
 	local solve_cmd = ""
@@ -64,42 +69,54 @@ AllPortalsOverlay.new = function(cfg)
 	local next_cmd = ""
 	local prev_cmd = ""
 	local overlay_image_path = ""
-	if cfg.overlay_binary ~= nil and cfg.overlay_binary ~= "" then
-		server_cmd = cfg.overlay_binary .. " server"
-		ring_cmd = cfg.overlay_binary .. " ring"
-		solve_cmd = cfg.overlay_binary .. " solver --headless"
-		reset_cmd = cfg.overlay_binary .. " reset"
-		next_cmd = cfg.overlay_binary .. " next"
-		prev_cmd = cfg.overlay_binary .. " prev"
-		local parent_dir = utils.get_parent_dir(cfg.overlay_binary)
+	local add_sh_cmd = ""
+	local remove_sh_cmd = ""
+	local save_png_cmd = ""
+	if cfg.binary_path ~= nil and cfg.binary_path ~= "" then
+		ring_cmd = cfg.binary_path .. " ring"
+		solve_cmd = cfg.binary_path .. " solver --headless"
+		reset_cmd = cfg.binary_path .. " reset"
+		next_cmd = cfg.binary_path .. " next"
+		prev_cmd = cfg.binary_path .. " prev"
+		add_sh_cmd = cfg.binary_path .. " add-measurement"
+		remove_sh_cmd = cfg.binary_path .. " remove-measurement"
+		local parent_dir = utils.get_parent_dir(cfg.binary_path)
 		if not parent_dir then
 			return nil
 		end
 		overlay_image_path = parent_dir .. "/all-portals-overlay.png"
+		save_png_cmd = cfg.binary_path .. " save-png"
+		self:read_session_strongholds(cfg.binary_path .. "/.session")
+		self:plot_stronghold_list_at_startup()
 	else
-		server_cmd = cfg.python_path .. " " .. cfg.overlay_path .. "/main.py server"
-		ring_cmd = cfg.python_path .. " " .. cfg.overlay_path .. "/main.py ring"
-		solve_cmd = cfg.python_path .. " " .. cfg.overlay_path .. "/main.py solver --headless"
-		reset_cmd = cfg.python_path .. " " .. cfg.overlay_path .. "/main.py reset"
-		next_cmd = cfg.python_path .. " " .. cfg.overlay_path .. "/main.py next"
-		prev_cmd = cfg.python_path .. " " .. cfg.overlay_path .. "/main.py prev"
-		overlay_image_path = cfg.overlay_path .. "/all-portals-overlay.png"
+		ring_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py ring"
+		solve_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py solver --headless"
+		reset_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py reset"
+		next_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py next"
+		prev_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py prev"
+		overlay_image_path = cfg.clone_path .. "/all-portals-overlay.png"
+		add_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py add-measurement"
+		remove_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py remove-measurement"
+		save_png_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py save-png"
+		self:read_session_strongholds(cfg.clone_path .. "/.session")
+		self:plot_stronghold_list_at_startup()
 	end
 	if not server_cmd or not ring_cmd or not solve_cmd then
 		Log:error("No overlay_binary or overlay_path set. Please set either one of them.")
 		return nil
 	end
-	self.__server_cmd = server_cmd
 	self.__ring_cmd = ring_cmd
 	self.__solve_cmd = solve_cmd
 	self.__reset_cmd = reset_cmd
 	self.__next_cmd = next_cmd
 	self.__prev_cmd = prev_cmd
 	self.__overlay_image_path = overlay_image_path
-	self.__strongholds = Strongholds
+	self.__strongholds = self.__strongholds or Strongholds
+	self.__add_sh_cmd = add_sh_cmd
+	self.__remove_sh_cmd = remove_sh_cmd
+	self.__save_png_cmd = save_png_cmd
 	self.__output_obj = nil
 	self.__output_img = nil
-	self.__cfg = cfg
 	return self
 end
 
@@ -112,46 +129,54 @@ AllPortalsOverlay.strongholds_is_full = function(strongholds)
 	return #strongholds == 8
 end
 
-function AllPortalsOverlay:start_server()
-	waywall.exec(self.__server_cmd)
-	Log:info("AP Overlay Server has started (or see error log below :p)!")
+function AllPortalsOverlay:read_session_strongholds(filepath)
+	local handle = io.open(filepath, "r")
+	if handle == nil then
+		return
+	end
+	--- @type string | nil
+	local sh_line_contents = handle:read("*l")
+	if sh_line_contents == nil then
+		return
+	end
+	local sh_contents = json.decode(sh_line_contents)
+	if sh_contents == nil then
+		return
+	end
+	self.__strongholds = sh_contents
+end
+
+function AllPortalsOverlay:plot_stronghold_list_at_startup()
+	local output = ""
+	if self.__strongholds == nil then
+		return
+	end
+	for i, stronghold in ipairs(self.__strongholds) do
+		if stronghold[1] == nil or stronghold[2] == nil then
+			goto continue
+		end
+		output = output .. i .. " " .. stronghold[1] .. " " .. stronghold[2] .. "\n"
+		::continue::
+	end
+	if self.__output_obj then
+		self.__output_obj:close()
+		self.__output_obj = nil
+	end
+	waywall.listen("load", function()
+		self.__output_obj = waywall.text("Current SHs\n" .. output, self.__cfg.overlay.text)
+	end)
 end
 
 function AllPortalsOverlay:solve()
-	local stronghold_json_path = ""
-	if self.__cfg.overlay_binary and self.__cfg.overlay_binary ~= "" then
-		local parent_dir = utils.get_parent_dir(self.__cfg.overlay_binary)
-		if not parent_dir then
-			return
-		end
-		stronghold_json_path = parent_dir .. "/strongholds.json"
-	else
-		stronghold_json_path = self.__cfg.overlay_path .. "/strongholds.json"
-	end
-	if not self.strongholds_is_full(self.__strongholds) then
-		Log:error("Strongholds.json does not have 8 strongholds.")
-		return
-	end
-	local stronghold_json, err = io.open(stronghold_json_path, "w")
-	if not stronghold_json then
-		Log:error("Could not open strongholds.json. Error: " .. err)
-		return
-	end
-	stronghold_json:write(json.encode(self.__strongholds))
-	stronghold_json:flush()
-	stronghold_json:close()
 	if self.__output_obj then
 		self.__output_obj:close()
 		self.__output_obj = nil
 	end
 	waywall.exec(self.__solve_cmd)
+	self:overlay_update()
 end
 
-function AllPortalsOverlay:input_next_stronghold(args)
-	if self.strongholds_is_full(self.__strongholds) then
-		Log:error("Strongholds.json already has 8 strongholds.")
-		return
-	end
+function AllPortalsOverlay:input_stronghold(args)
 	if #args ~= 3 then
 		Log:error("Invalid number of arguments. Expected 3, got " .. #args)
 		return
@@ -162,16 +187,41 @@ function AllPortalsOverlay:input_next_stronghold(args)
 		return
 	end
 	local x = tonumber(args[2])
-	if not x then
+	if not x and x ~= 0 then
 		Log:error("Invalid x coordinate. Expected a number, got " .. args[2])
 		return
 	end
 	local y = tonumber(args[3])
-	if not y then
+	if not y and y ~= 0 then
 		Log:error("Invalid y coordinate. Expected a number, got " .. args[3])
 		return
 	end
 	self.__strongholds[ring_number] = { x, y }
+	waywall.exec(self.__add_sh_cmd .. " " .. ring_number .. " " .. x .. " " .. y)
+	local output = ""
+	for i = 1, 8 do
+		if self.__strongholds[i] then
+			output = output .. i .. " " .. self.__strongholds[i][1] .. " " .. self.__strongholds[i][2] .. "\n"
+		end
+	end
+
+	if self.__output_obj then
+		self.__output_obj:close()
+		self.__output_obj = nil
+	end
+	self.__output_obj = waywall.text("Current SHs\n" .. output, self.__cfg.overlay.text)
+end
+
+function AllPortalsOverlay:remove_stronghold(args)
+	if #args ~= 1 then
+		Log:error("Expected ring number, got nothing")
+	end
+	local ring = tonumber(args[1])
+	if not ring then
+		Log:error("Invalid ring number. Expected a number, got " .. args[1])
+	end
+	self.__strongholds[ring] = nil
+	waywall.exec(self.__remove_sh_cmd .. " " .. ring)
 	local output = ""
 	for i = 1, 8 do
 		if self.__strongholds[i] then
@@ -192,12 +242,12 @@ function AllPortalsOverlay:check_ring(args)
 		return
 	end
 	local x = tonumber(args[1])
-	if not x then
+	if not x and x ~= 0 then
 		Log:error("Invalid x coordinate. Expected a number, got " .. args[2])
 		return
 	end
 	local y = tonumber(args[2])
-	if not y then
+	if not y and y ~= 0 then
 		Log:error("Invalid y coordinate. Expected a number, got " .. args[3])
 		return
 	end
@@ -220,46 +270,45 @@ function AllPortalsOverlay:check_ring(args)
 end
 
 function AllPortalsOverlay:reset()
-	self:overlay_hide()
+	self.__strongholds = Strongholds
 	local handle = io.popen(self.__reset_cmd)
 	if not handle then
 		Log:error("Could not run reset command. Error: " .. handle)
 		return
 	end
 	handle:close()
-	self.__strongholds = Strongholds
+	os.remove(self.__overlay_image_path)
 	if self.__output_obj then
 		self.__output_obj:close()
 		self.__output_obj = nil
 	end
-	self:overlay_update()
 end
 
 function AllPortalsOverlay:next()
-	self:overlay_hide()
 	local handle = io.popen(self.__next_cmd)
 	if not handle then
 		Log:error("Could not run next command. Error: " .. handle)
 		return
 	end
 	handle:close()
-	self:overlay_update()
 end
 
 function AllPortalsOverlay:prev()
-	self:overlay_hide()
 	local handle = io.popen(self.__prev_cmd)
 	if not handle then
 		Log:error("Could not run prev command. Error: " .. handle)
 		return
 	end
 	handle:close()
-	self:overlay_update()
 end
 
 function AllPortalsOverlay:overlay_update()
+	if self.__output_obj then
+		self.__output_obj:close()
+		self.__output_obj = nil
+	end
 	self:overlay_hide()
-	utils.make_curl_request_for_image()
+	self:save_png()
 	self.__output_img = waywall.image(self.__overlay_image_path, self.__cfg.overlay.image)
 end
 
@@ -270,4 +319,12 @@ function AllPortalsOverlay:overlay_hide()
 	end
 end
 
+function AllPortalsOverlay:save_png()
+	local handle = io.popen(self.__save_png_cmd .. " " .. self.__overlay_image_path)
+	if not handle then
+		Log:error("Could not run save png. Error: " .. handle)
+		return
+	end
+	handle:close()
+end
 return M

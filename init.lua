@@ -1,7 +1,6 @@
 local utils = require("ww_ap_overlay.utils")
-local waywall = require("waywall")
 local ww_command_line = require("ww_command_line")
-local all_portals_overlay = require("ww_ap_overlay.all_portals_overlay")
+require("ww_ap_overlay.all_portals_overlay")
 
 local M = {}
 
@@ -49,14 +48,15 @@ OverlayConfig = {}
 --- @class Config
 --- @field python_path string | nil
 --- @field log_level LogLevel | nil
---- @field overlay_path string | nil
---- @field overlay_binary string | nil
+--- @field clone_path string | nil
+--- @field binary_path string | nil
 --- @field hotkeys Hotkeys | nil
 --- @field ww_cli WwCliConfig
+--- @field wayevents_path string
 --- @field overlay OverlayConfig
 Config = {
 	python_path = "/usr/bin/python3",
-	overlay_path = "~/all-portals-overlay",
+	clone_path = "~/all-portals-overlay",
 	ww_cli = {
 		start_key = "BACKSLASH",
 		enter_key = "Return",
@@ -66,7 +66,13 @@ Config = {
 			size = 7,
 			color = "#FFFFFF",
 		},
+		commands = {
+			add_sh = "apadd",
+			remove_sh = "aprm",
+			ring = "apring",
+		},
 	},
+	wayevents_path = "~/.local/bin/wayevents",
 	hotkeys = Hotkeys,
 	overlay = {
 		text = {
@@ -93,10 +99,17 @@ Config = {
 --- @field color string
 WwCliLook = {}
 
+--- @class WwCliCommands
+--- @field add_sh string
+--- @field remove_sh string
+--- @field ring string
+WwCliCommands = {}
+
 --- @class WwCliConfig
 --- @field start_key string
 --- @field enter_key string
 --- @field look WwCliLook
+--- @field commands WwCliCommands
 WwCliConfig = {}
 
 --- @param hotkeys Hotkeys
@@ -123,6 +136,16 @@ local parse_ww_cli_look = function(ww_cli_look)
 	}
 end
 
+--- @param ww_cli_commands WwCliCommands
+--- @return WwCliCommands
+local parse_ww_cli_commands = function(ww_cli_commands)
+	return {
+		add_sh = ww_cli_commands.add_sh or Config.ww_cli.commands.add_sh,
+		remove_sh = ww_cli_commands.remove_sh or Config.ww_cli.commands.remove_sh,
+		ring = ww_cli_commands.ring or Config.ww_cli.commands.ring,
+	}
+end
+
 --- @param ww_cli_config WwCliConfig
 --- @return WwCliConfig
 local parse_ww_cli_config = function(ww_cli_config)
@@ -130,6 +153,7 @@ local parse_ww_cli_config = function(ww_cli_config)
 		start_key = ww_cli_config.start_key or Config.ww_cli.start_key,
 		enter_key = ww_cli_config.enter_key or Config.ww_cli.enter_key,
 		look = parse_ww_cli_look(ww_cli_config.look or Config.ww_cli.look),
+		commands = parse_ww_cli_commands(ww_cli_config.commands or Config.ww_cli.commands),
 	}
 end
 
@@ -179,15 +203,16 @@ end
 local parse_config = function(cfg)
 	local config = {
 		python_path = utils.normalize_path(cfg.python_path or Config.python_path),
-		overlay_path = utils.normalize_path(cfg.overlay_path or Config.overlay_path),
-		overlay_binary = utils.normalize_path(cfg.overlay_binary or Config.overlay_binary),
+		clone_path = utils.normalize_path(cfg.clone_path or Config.clone_path),
+		binary_path = utils.normalize_path(cfg.binary_path or Config.binary_path),
 		hotkeys = cfg.hotkeys and parse_hotkeys(cfg.hotkeys) or Config.hotkeys,
 		ww_cli = parse_ww_cli_config(cfg.ww_cli or Config.ww_cli),
+		wayevents_path = cfg.wayevents_path or Config.wayevents_path,
 		overlay = cfg.overlay and parse_overlay_config(cfg.overlay) or Config.overlay,
 	}
-	-- Check if overlay_path and python_path are set OR overlay_binary is set.
-	if (not config.overlay_path or not config.python_path) and not config.overlay_binary then
-		Log:error("No overlay_path or python_path set. Please set one of them.")
+	-- Check if clone_path and python_path are set OR binary_path is set.
+	if (not config.clone_path or not config.python_path) and not config.binary_path then
+		Log:error("No clone_path and python_path or binary_path set. Please set one of them.")
 		return nil
 	end
 	return config
@@ -200,13 +225,25 @@ M.setup = function(config, cfg)
 		return
 	end
 
+	local path = os.getenv("PATH")
+	local home = os.getenv("HOME")
+	if home == nil or path == nil then
+		Log:error("No $HOME or $PATH set.")
+		return
+	end
+	os.setenv("PATH", path .. ":" .. home .. "/.local/bin" .. ":" .. home .. "/.cargo/bin")
+	local events = require("wayevents.init")({
+		autoinstall = "prebuilt",
+	})
+
 	local ap_overlay = AllPortalsOverlay.new(user_config)
 	if not ap_overlay then
 		Log:error("Could not create AllPortalsOverlay instance.")
 		return
 	end
-	waywall.listen("load", function()
-		ap_overlay:start_server()
+
+	events.listen("update", function()
+		ap_overlay:overlay_update()
 	end)
 
 	local ww_cli_cfg = {
@@ -219,14 +256,21 @@ M.setup = function(config, cfg)
 			color = user_config.ww_cli.look.color,
 		},
 		commands = {
-			-- apnextsh <ring number> <x> <y>
-			["apnextsh"] = function(args)
-				ap_overlay:input_next_stronghold(args)
+			-- apadd <ring number> <x> <y>
+			[user_config.ww_cli.commands.add_sh] = function(args)
+				ap_overlay:input_stronghold(args)
+			end,
+			-- aprm <ring number>
+			[user_config.ww_cli.commands.remove_sh] = function(args)
+				ap_overlay:remove_stronghold(args)
 			end,
 			-- apring <x> <y>
-			["apring"] = function(args)
+			[user_config.ww_cli.commands.ring] = function(args)
 				ap_overlay:check_ring(args)
 			end,
+		},
+		add_inputs = {
+			["minus"] = "-",
 		},
 		arbitrary_command = function(key) end,
 	}
