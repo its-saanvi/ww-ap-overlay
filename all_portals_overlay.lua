@@ -38,7 +38,6 @@ SceneObj = {}
 --- @field __prev_cmd string
 --- @field __add_sh_cmd string
 --- @field __remove_sh_cmd string
---- @field __save_png_cmd string
 --- @field __overlay_image_path string
 --- @field __cfg Config
 --- @field __strongholds Strongholds
@@ -56,13 +55,11 @@ SceneObj = {}
 --- @field prev fun(self)
 --- @field overlay_update fun(self)
 --- @field overlay_hide fun(self)
---- @field save_png fun(self)
 AllPortalsOverlay = {}
 
 AllPortalsOverlay.new = function(cfg)
 	local self = setmetatable({}, { __index = AllPortalsOverlay })
 	self.__cfg = cfg
-	local server_cmd = ""
 	local ring_cmd = ""
 	local solve_cmd = ""
 	local reset_cmd = ""
@@ -71,13 +68,12 @@ AllPortalsOverlay.new = function(cfg)
 	local overlay_image_path = ""
 	local add_sh_cmd = ""
 	local remove_sh_cmd = ""
-	local save_png_cmd = ""
 	if cfg.binary_path ~= nil and cfg.binary_path ~= "" then
 		ring_cmd = cfg.binary_path .. " ring"
-		solve_cmd = cfg.binary_path .. " solver --headless"
-		reset_cmd = cfg.binary_path .. " reset"
-		next_cmd = cfg.binary_path .. " next"
-		prev_cmd = cfg.binary_path .. " prev"
+		solve_cmd = cfg.binary_path .. " --wayevents solver --headless"
+		reset_cmd = cfg.binary_path .. " --wayevents reset"
+		next_cmd = cfg.binary_path .. " --wayevents next --wayevents"
+		prev_cmd = cfg.binary_path .. " --wayevents prev"
 		add_sh_cmd = cfg.binary_path .. " add-measurement"
 		remove_sh_cmd = cfg.binary_path .. " remove-measurement"
 		local parent_dir = utils.get_parent_dir(cfg.binary_path)
@@ -85,25 +81,19 @@ AllPortalsOverlay.new = function(cfg)
 			return nil
 		end
 		overlay_image_path = parent_dir .. "/all-portals-overlay.png"
-		save_png_cmd = cfg.binary_path .. " save-png"
 		self:read_session_strongholds(cfg.binary_path .. "/.session")
 		self:plot_stronghold_list_at_startup()
 	else
 		ring_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py ring"
-		solve_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py solver --headless"
-		reset_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py reset"
-		next_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py next"
-		prev_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py prev"
+		solve_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py --wayevents solver --headless"
+		reset_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py --wayevents reset"
+		next_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py --wayevents next"
+		prev_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py --wayevents prev"
 		overlay_image_path = cfg.clone_path .. "/all-portals-overlay.png"
 		add_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py add-measurement"
 		remove_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py remove-measurement"
-		save_png_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py save-png"
 		self:read_session_strongholds(cfg.clone_path .. "/.session")
 		self:plot_stronghold_list_at_startup()
-	end
-	if not server_cmd or not ring_cmd or not solve_cmd then
-		Log:error("No overlay_binary or overlay_path set. Please set either one of them.")
-		return nil
 	end
 	self.__ring_cmd = ring_cmd
 	self.__solve_cmd = solve_cmd
@@ -114,7 +104,6 @@ AllPortalsOverlay.new = function(cfg)
 	self.__strongholds = self.__strongholds or Strongholds
 	self.__add_sh_cmd = add_sh_cmd
 	self.__remove_sh_cmd = remove_sh_cmd
-	self.__save_png_cmd = save_png_cmd
 	self.__output_obj = nil
 	self.__output_img = nil
 	return self
@@ -277,7 +266,6 @@ function AllPortalsOverlay:reset()
 		return
 	end
 	handle:close()
-	os.remove(self.__overlay_image_path)
 	if self.__output_obj then
 		self.__output_obj:close()
 		self.__output_obj = nil
@@ -308,7 +296,6 @@ function AllPortalsOverlay:overlay_update()
 		self.__output_obj = nil
 	end
 	self:overlay_hide()
-	self:save_png()
 	self.__output_img = waywall.image(self.__overlay_image_path, self.__cfg.overlay.image)
 end
 
@@ -319,12 +306,4 @@ function AllPortalsOverlay:overlay_hide()
 	end
 end
 
-function AllPortalsOverlay:save_png()
-	local handle = io.popen(self.__save_png_cmd .. " " .. self.__overlay_image_path)
-	if not handle then
-		Log:error("Could not run save png. Error: " .. handle)
-		return
-	end
-	handle:close()
-end
 return M
