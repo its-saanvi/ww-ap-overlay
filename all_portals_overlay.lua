@@ -43,9 +43,10 @@ SceneObj = {}
 --- @field __strongholds Strongholds
 --- @field __output_obj SceneObj
 --- @field __output_img SceneObj
+--- @field __solved boolean
 --- @field new fun(cfg: Config): AllPortalsOverlay | nil
+--- @field parse_current_strongholds_for_output fun(self): string
 --- @field read_session_strongholds fun(self, filepath: string)
---- @field plot_stronghold_list_at_startup fun(self)
 --- @field strongholds_is_full fun(strongholds: Strongholds): boolean
 --- @field solve fun(self)
 --- @field input_stronghold fun(self, args: string[])
@@ -60,6 +61,7 @@ AllPortalsOverlay = {}
 AllPortalsOverlay.new = function(cfg)
 	local self = setmetatable({}, { __index = AllPortalsOverlay })
 	self.__cfg = cfg
+	self.__solved = false
 	local ring_cmd = ""
 	local solve_cmd = ""
 	local reset_cmd = ""
@@ -82,7 +84,6 @@ AllPortalsOverlay.new = function(cfg)
 		end
 		overlay_image_path = parent_dir .. "/all-portals-overlay.png"
 		self:read_session_strongholds(cfg.binary_path .. "/.session")
-		self:plot_stronghold_list_at_startup()
 	else
 		ring_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py ring"
 		solve_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py --wayevents solver --headless"
@@ -93,7 +94,6 @@ AllPortalsOverlay.new = function(cfg)
 		add_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py add-measurement"
 		remove_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py remove-measurement"
 		self:read_session_strongholds(cfg.clone_path .. "/.session")
-		self:plot_stronghold_list_at_startup()
 	end
 	self.__ring_cmd = ring_cmd
 	self.__solve_cmd = solve_cmd
@@ -118,6 +118,21 @@ AllPortalsOverlay.strongholds_is_full = function(strongholds)
 	return #strongholds == 8
 end
 
+function AllPortalsOverlay:parse_current_strongholds_for_output()
+	local output = ""
+	for i = 1, 8 do
+		if self.__strongholds[i] then
+			output = output .. i .. " " .. self.__strongholds[i][1] .. " " .. self.__strongholds[i][2] .. "\n"
+		end
+	end
+
+	if self.__output_obj then
+		self.__output_obj:close()
+		self.__output_obj = nil
+	end
+	return "Current SHs\n" .. output
+end
+
 function AllPortalsOverlay:read_session_strongholds(filepath)
 	local handle = io.open(filepath, "r")
 	if handle == nil then
@@ -135,94 +150,71 @@ function AllPortalsOverlay:read_session_strongholds(filepath)
 	self.__strongholds = sh_contents
 end
 
-function AllPortalsOverlay:plot_stronghold_list_at_startup()
-	local output = ""
-	if self.__strongholds == nil then
+function AllPortalsOverlay:solve()
+	if not self.strongholds_is_full(self.__strongholds) then
 		return
 	end
-	for i, stronghold in ipairs(self.__strongholds) do
-		if stronghold[1] == nil or stronghold[2] == nil then
-			goto continue
-		end
-		output = output .. i .. " " .. stronghold[1] .. " " .. stronghold[2] .. "\n"
-		::continue::
-	end
-	if self.__output_obj then
-		self.__output_obj:close()
-		self.__output_obj = nil
-	end
-	waywall.listen("load", function()
-		self.__output_obj = waywall.text("Current SHs\n" .. output, self.__cfg.overlay.text)
-	end)
-end
-
-function AllPortalsOverlay:solve()
 	if self.__output_obj then
 		self.__output_obj:close()
 		self.__output_obj = nil
 	end
 	waywall.exec(self.__solve_cmd)
 	self:overlay_update()
+	self.__solved = true
 end
 
 function AllPortalsOverlay:input_stronghold(args)
-	if #args ~= 3 then
-		Log:error("Invalid number of arguments. Expected 3, got " .. #args)
+	if #args ~= 2 and #args ~= 3 then
+		Log:error("Invalid number of arguments. Expected 2 or 3, got " .. #args)
 		return
 	end
-	local ring_number = tonumber(args[1])
-	if not ring_number then
-		Log:error("Invalid ring number. Expected a number, got " .. args[1])
-		return
-	end
-	local x = tonumber(args[2])
+	local x = tonumber(args[1])
 	if not x and x ~= 0 then
 		Log:error("Invalid x coordinate. Expected a number, got " .. args[2])
 		return
 	end
-	local y = tonumber(args[3])
+	local y = tonumber(args[2])
 	if not y and y ~= 0 then
 		Log:error("Invalid y coordinate. Expected a number, got " .. args[3])
 		return
 	end
-	self.__strongholds[ring_number] = { x, y }
-	waywall.exec(self.__add_sh_cmd .. " " .. ring_number .. " " .. x .. " " .. y)
-	local output = ""
-	for i = 1, 8 do
-		if self.__strongholds[i] then
-			output = output .. i .. " " .. self.__strongholds[i][1] .. " " .. self.__strongholds[i][2] .. "\n"
+	local ring_number = tonumber(args[3])
+	if not ring_number then
+		-- Infer ring_number by checking last nil value in the strongholds list
+		for i = 1, 8 do
+			local stronghold = self.__strongholds[i]
+			if stronghold == nil then
+				ring_number = i
+				break
+			end
+		end
+		if not ring_number then
+			Log:error(
+				"Could not infer ring_number.\nEither the session strongholds are full or something really bad happened. Report this issue."
+			)
+			return
 		end
 	end
-
-	if self.__output_obj then
-		self.__output_obj:close()
-		self.__output_obj = nil
-	end
-	self.__output_obj = waywall.text("Current SHs\n" .. output, self.__cfg.overlay.text)
+	self.__strongholds[ring_number] = { x, y }
+	waywall.exec(self.__add_sh_cmd .. " " .. ring_number .. " " .. x .. " " .. y)
+	self.__output_obj = waywall.text(self:parse_current_strongholds_for_output(), self.__cfg.overlay.text)
 end
 
 function AllPortalsOverlay:remove_stronghold(args)
-	if #args ~= 1 then
-		Log:error("Expected ring number, got nothing")
-	end
-	local ring = tonumber(args[1])
-	if not ring then
-		Log:error("Invalid ring number. Expected a number, got " .. args[1])
-	end
-	self.__strongholds[ring] = nil
-	waywall.exec(self.__remove_sh_cmd .. " " .. ring)
-	local output = ""
-	for i = 1, 8 do
-		if self.__strongholds[i] then
-			output = output .. i .. " " .. self.__strongholds[i][1] .. " " .. self.__strongholds[i][2] .. "\n"
+	local ring_number = tonumber(args[1])
+	if not ring_number then
+		-- Infer ring number as the last element of self.__strongholds
+		ring_number = #self.__strongholds
+		if not ring_number then
+			Log:error(
+				"Could not infer ring_number.\nEither the session strongholds are full or something really bad happened. Report this issue."
+			)
+			return
 		end
 	end
-
-	if self.__output_obj then
-		self.__output_obj:close()
-		self.__output_obj = nil
-	end
-	self.__output_obj = waywall.text("Current SHs\n" .. output, self.__cfg.overlay.text)
+	self.__strongholds[ring_number] = nil
+	waywall.exec(self.__remove_sh_cmd .. " " .. ring_number)
+	self.__output_obj = waywall.text(self:parse_current_strongholds_for_output(), self.__cfg.overlay.text)
 end
 
 function AllPortalsOverlay:check_ring(args)
@@ -270,6 +262,7 @@ function AllPortalsOverlay:reset()
 		self.__output_obj:close()
 		self.__output_obj = nil
 	end
+	self.__solved = false
 end
 
 function AllPortalsOverlay:next()
@@ -291,15 +284,19 @@ function AllPortalsOverlay:prev()
 end
 
 function AllPortalsOverlay:overlay_update()
+	self:overlay_hide()
+	if not self.__solved then
+		self.__output_obj = waywall.text(self:parse_current_strongholds_for_output(), self.__cfg.overlay.text)
+	else
+		self.__output_img = waywall.image(self.__overlay_image_path, self.__cfg.overlay.image)
+	end
+end
+
+function AllPortalsOverlay:overlay_hide()
 	if self.__output_obj then
 		self.__output_obj:close()
 		self.__output_obj = nil
 	end
-	self:overlay_hide()
-	self.__output_img = waywall.image(self.__overlay_image_path, self.__cfg.overlay.image)
-end
-
-function AllPortalsOverlay:overlay_hide()
 	if self.__output_img then
 		self.__output_img:close()
 		self.__output_img = nil

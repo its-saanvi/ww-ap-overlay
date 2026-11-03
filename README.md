@@ -27,6 +27,7 @@ All Portals Overlay as a plugin on waywall.
 					y = 200,
 					size = 7,
 					color = "#FFFFFF",
+					completion_color = "#323232",
 				},
 				commands = {
 					add_sh = "apadd",

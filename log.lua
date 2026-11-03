@@ -1,3 +1,4 @@
+local waywall = require("waywall")
 local M = {}
 
 --- @enum LogLevel
@@ -11,15 +12,32 @@ LogLevel = {
 --- @class Logger
 --- @field __log fun(self, msg: string)
 --- @field __log_error fun(self, msg: string)
+--- @field __output_obj SceneObj
 --- @field __cfg Config
 --- @field level LogLevel
 --- @field debug fun(self, msg: string)
 --- @field info fun(self, msg: string)
 --- @field warn fun(self, msg: string)
 --- @field error fun(self, msg: string)
+--- @field close_error_output fun(self)
 Logger = {}
 
 function Logger:__log_error(msg)
+	if self.__output_obj ~= nil then
+		self.__output_obj:close()
+		self.__output_obj = nil
+	end
+	self.__output_obj = waywall.text(msg, {
+		x = 0,
+		y = 0,
+		size = 2,
+		color = "#F7768E",
+	})
+	waywall.sleep(5000)
+	if self.__output_obj ~= nil then
+		self.__output_obj:close()
+		self.__output_obj = nil
+	end
 	error(msg)
 end
 

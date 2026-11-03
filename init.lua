@@ -65,6 +65,7 @@ Config = {
 			y = 200,
 			size = 7,
 			color = "#FFFFFF",
+			completion_color = "#323232",
 		},
 		commands = {
 			add_sh = "apadd",
@@ -97,6 +98,7 @@ Config = {
 --- @field y number
 --- @field size number
 --- @field color string
+--- @field completion_color string
 WwCliLook = {}
 
 --- @class WwCliCommands
@@ -133,6 +135,7 @@ local parse_ww_cli_look = function(ww_cli_look)
 		y = ww_cli_look.y or Config.ww_cli.look.y,
 		size = ww_cli_look.size or Config.ww_cli.look.size,
 		color = ww_cli_look.color or Config.ww_cli.look.color,
+		completion_color = ww_cli_look.completion_color or Config.ww_cli.completion_color,
 	}
 end
 
@@ -249,18 +252,13 @@ M.setup = function(config, cfg)
 	local ww_cli_cfg = {
 		start_key = user_config.ww_cli.start_key,
 		enter_key = user_config.ww_cli.enter_key,
-		look = {
-			x = user_config.ww_cli.look.x,
-			y = user_config.ww_cli.look.y,
-			size = user_config.ww_cli.look.size,
-			color = user_config.ww_cli.look.color,
-		},
+		look = user_config.ww_cli.look,
 		commands = {
-			-- apadd <ring number> <x> <y>
+			-- apadd <x> <y> <ring_number: optional>
 			[user_config.ww_cli.commands.add_sh] = function(args)
 				ap_overlay:input_stronghold(args)
 			end,
-			-- aprm <ring number>
+			-- aprm <ring number: optional>
 			[user_config.ww_cli.commands.remove_sh] = function(args)
 				ap_overlay:remove_stronghold(args)
 			end,
