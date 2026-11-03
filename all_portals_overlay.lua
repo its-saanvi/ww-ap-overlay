@@ -139,7 +139,7 @@ function AllPortalsOverlay:read_session_strongholds(filepath)
 		return
 	end
 	--- @type string | nil
-	local sh_line_contents = handle:read("*l")
+	local sh_line_contents, _, _, _, current_stronghold = handle:read("*l", "*l", "*l", "*l", "*n")
 	if sh_line_contents == nil then
 		return
 	end
@@ -148,6 +148,9 @@ function AllPortalsOverlay:read_session_strongholds(filepath)
 		return
 	end
 	self.__strongholds = sh_contents
+	if current_stronghold ~= nil and current_stronghold >= 8 then
+		self.__solved = true
+	end
 end
 
 function AllPortalsOverlay:solve()

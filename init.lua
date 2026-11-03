@@ -274,21 +274,27 @@ M.setup = function(config, cfg)
 	}
 	config.actions[user_config.hotkeys.next] = function()
 		ap_overlay:next()
+		return false
 	end
 	config.actions[user_config.hotkeys.prev] = function()
 		ap_overlay:prev()
+		return false
 	end
 	config.actions[user_config.hotkeys.reset] = function()
 		ap_overlay:reset()
+		return false
 	end
 	config.actions[user_config.hotkeys.solve] = function()
 		ap_overlay:solve()
+		return false
 	end
 	config.actions[user_config.hotkeys.show_overlay] = function()
 		ap_overlay:overlay_update()
+		return false
 	end
 	config.actions[user_config.hotkeys.hide_overlay] = function()
 		ap_overlay:overlay_hide()
+		return false
 	end
 	ww_command_line.setup(config, ww_cli_cfg)
 end
