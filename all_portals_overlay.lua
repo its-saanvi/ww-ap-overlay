@@ -246,11 +246,16 @@ function AllPortalsOverlay:check_ring(args)
 		Log:error("Ring command failed. Please check the log.")
 		return
 	end
-	if self.__output_obj then
-		self.__output_obj:close()
-		self.__output_obj = nil
-	end
-	self._output_obj = waywall.text(output, self.__cfg.overlay.text)
+	--- @type SceneObj
+	local temp_output_obj = nil
+	temp_output_obj = waywall.text(output, {
+		x = self.__cfg.ww_cli.look.x,
+		y = self.__cfg.ww_cli.look.y + 250,
+		size = self.__cfg.ww_cli.look.size,
+		color = self.__cfg.ww_cli.look.color,
+	})
+	waywall.sleep(3000)
+	temp_output_obj:close()
 end
 
 function AllPortalsOverlay:reset()

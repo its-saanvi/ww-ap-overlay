@@ -68,9 +68,9 @@ Config = {
 			completion_color = "#323232",
 		},
 		commands = {
-			add_sh = "apadd",
-			remove_sh = "aprm",
-			ring = "apring",
+			add_sh = "addap",
+			remove_sh = "rmap",
+			ring = "ringap",
 		},
 	},
 	wayevents_path = "~/.local/bin/wayevents",
@@ -135,7 +135,7 @@ local parse_ww_cli_look = function(ww_cli_look)
 		y = ww_cli_look.y or Config.ww_cli.look.y,
 		size = ww_cli_look.size or Config.ww_cli.look.size,
 		color = ww_cli_look.color or Config.ww_cli.look.color,
-		completion_color = ww_cli_look.completion_color or Config.ww_cli.completion_color,
+		completion_color = ww_cli_look.completion_color or Config.ww_cli.look.completion_color,
 	}
 end
 
@@ -249,6 +249,13 @@ M.setup = function(config, cfg)
 		ap_overlay:overlay_update()
 	end)
 
+	print(
+		user_config.ww_cli.look.x,
+		user_config.ww_cli.look.y,
+		user_config.ww_cli.look.size,
+		user_config.ww_cli.look.color,
+		user_config.ww_cli.look.completion_color
+	)
 	local ww_cli_cfg = {
 		start_key = user_config.ww_cli.start_key,
 		enter_key = user_config.ww_cli.enter_key,
