@@ -74,10 +74,10 @@ AllPortalsOverlay.new = function(cfg)
 		ring_cmd = cfg.binary_path .. " ring"
 		solve_cmd = cfg.binary_path .. " --wayevents solver --headless"
 		reset_cmd = cfg.binary_path .. " --wayevents reset"
-		next_cmd = cfg.binary_path .. " --wayevents next --wayevents"
+		next_cmd = cfg.binary_path .. " --wayevents next"
 		prev_cmd = cfg.binary_path .. " --wayevents prev"
-		add_sh_cmd = cfg.binary_path .. " add-measurement"
-		remove_sh_cmd = cfg.binary_path .. " remove-measurement"
+		add_sh_cmd = cfg.binary_path .. " add"
+		remove_sh_cmd = cfg.binary_path .. " remove"
 		local parent_dir = utils.get_parent_dir(cfg.binary_path)
 		if not parent_dir then
 			return nil
@@ -91,8 +91,8 @@ AllPortalsOverlay.new = function(cfg)
 		next_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py --wayevents next"
 		prev_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py --wayevents prev"
 		overlay_image_path = cfg.clone_path .. "/all-portals-overlay.png"
-		add_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py add-measurement"
-		remove_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py remove-measurement"
+		add_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py add"
+		remove_sh_cmd = cfg.python_path .. " " .. cfg.clone_path .. "/main.py remove"
 		self:read_session_strongholds(cfg.clone_path .. "/.session")
 	end
 	self.__ring_cmd = ring_cmd
