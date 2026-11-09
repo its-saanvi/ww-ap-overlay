@@ -162,8 +162,8 @@ function AllPortalsOverlay:solve()
 		self.__output_obj = nil
 	end
 	waywall.exec(self.__solve_cmd)
-	self:overlay_update()
 	self.__solved = true
+	self:overlay_update()
 end
 
 function AllPortalsOverlay:input_stronghold(args)
