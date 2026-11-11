@@ -199,7 +199,7 @@ function AllPortalsOverlay:input_stronghold(args)
 		end
 	end
 	self.__strongholds[ring_number] = { x, y }
-	waywall.exec(self.__add_sh_cmd .. " " .. ring_number .. " " .. x .. " " .. y)
+	waywall.exec(self.__add_sh_cmd .. " " .. x .. " " .. y)
 	self.__output_obj = waywall.text(self:parse_current_strongholds_for_output(), self.__cfg.overlay.text)
 end
 
