@@ -1,3 +1,4 @@
+require("ww_ap_overlay.log")
 local utils = require("ww_ap_overlay.utils")
 local ww_command_line = require("ww_command_line")
 require("ww_ap_overlay.all_portals_overlay")
@@ -14,8 +15,8 @@ Hotkeys = {
 	prev = "Page_Down",
 	reset = "F12",
 	solve = "F9",
-	show_overlay = "N",
-	hide_overlay = "M",
+	show_overlay = "F9",
+	hide_overlay = "F10",
 }
 
 --- @class OverlayTextConfig
@@ -228,6 +229,8 @@ M.setup = function(config, cfg)
 		return
 	end
 
+	Log = Logger.new(user_config)
+
 	local path = os.getenv("PATH")
 	local home = os.getenv("HOME")
 	if home == nil or path == nil then
@@ -249,19 +252,12 @@ M.setup = function(config, cfg)
 		ap_overlay:overlay_update()
 	end)
 
-	print(
-		user_config.ww_cli.look.x,
-		user_config.ww_cli.look.y,
-		user_config.ww_cli.look.size,
-		user_config.ww_cli.look.color,
-		user_config.ww_cli.look.completion_color
-	)
 	local ww_cli_cfg = {
 		start_key = user_config.ww_cli.start_key,
 		enter_key = user_config.ww_cli.enter_key,
 		look = user_config.ww_cli.look,
 		commands = {
-			-- apadd <x> <y> <ring_number: optional>
+			-- apadd <x> <y>
 			[user_config.ww_cli.commands.add_sh] = function(args)
 				ap_overlay:input_stronghold(args)
 			end,

@@ -1,6 +1,9 @@
 local waywall = require("waywall")
 local M = {}
 
+--- @type Logger | nil
+Log = nil
+
 --- @enum LogLevel
 LogLevel = {
 	ERROR = 0,
@@ -28,23 +31,25 @@ function Logger:__log_error(msg)
 		self.__output_obj = nil
 	end
 	self.__output_obj = waywall.text(msg, {
-		x = 0,
-		y = 0,
-		size = 2,
+		x = 200,
+		y = 300,
+		size = self.__cfg.overlay.text.size,
 		color = "#F7768E",
 	})
-	waywall.sleep(5000)
+	waywall.sleep(2500)
 	if self.__output_obj ~= nil then
 		self.__output_obj:close()
 		self.__output_obj = nil
 	end
-	error(msg)
+	self:__log(msg)
 end
 
 function Logger:__log(msg)
-	print(msg)
+	print("[ww_ap_overlay] - " .. msg)
 end
 
+--- @param cfg Config
+--- @return Logger
 function Logger.new(cfg)
 	local self = setmetatable({}, { __index = Logger })
 	self.level = LogLevel.DEBUG
@@ -75,8 +80,5 @@ function Logger:error(msg)
 		self:__log_error(msg)
 	end
 end
-
---- @type Logger
-Log = Logger:new()
 
 return M

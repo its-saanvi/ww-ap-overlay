@@ -45,6 +45,7 @@ SceneObj = {}
 --- @field __output_img SceneObj
 --- @field __solved boolean
 --- @field new fun(cfg: Config): AllPortalsOverlay | nil
+--- @field run_ring_command fun(self, x: number?, z: number?): number | nil
 --- @field parse_current_strongholds_for_output fun(self): string
 --- @field read_session_strongholds fun(self, filepath: string)
 --- @field strongholds_is_full fun(strongholds: Strongholds): boolean
@@ -110,7 +111,8 @@ AllPortalsOverlay.new = function(cfg)
 end
 
 AllPortalsOverlay.strongholds_is_full = function(strongholds)
-	for _, stronghold in ipairs(strongholds) do
+	for i = 1, 8 do
+		local stronghold = strongholds[i]
 		if stronghold == nil or type(stronghold) ~= "table" or stronghold[1] == nil or stronghold[2] == nil then
 			return false
 		end
@@ -155,6 +157,7 @@ end
 
 function AllPortalsOverlay:solve()
 	if not self.strongholds_is_full(self.__strongholds) then
+		Log:error("All 8 strongholds are not yet entered.")
 		return
 	end
 	if self.__output_obj then
@@ -166,9 +169,24 @@ function AllPortalsOverlay:solve()
 	self:overlay_update()
 end
 
+function AllPortalsOverlay:run_ring_command(x, z)
+	local handle = io.popen(self.__ring_cmd .. " " .. x .. " " .. z)
+	if not handle then
+		Log:error("Ring command failed. Could not run ring command.")
+		return
+	end
+	local output = handle:read("*a")
+	handle:close()
+	if output == "" then
+		Log:error("Ring command failed. Please check the log.")
+		return
+	end
+	return tonumber(output)
+end
+
 function AllPortalsOverlay:input_stronghold(args)
-	if #args ~= 2 and #args ~= 3 then
-		Log:error("Invalid number of arguments. Expected 2 or 3, got " .. #args)
+	if #args ~= 2 then
+		Log:error("Invalid number of arguments. Expected 2, got " .. #args)
 		return
 	end
 	local x = tonumber(args[1])
@@ -176,39 +194,35 @@ function AllPortalsOverlay:input_stronghold(args)
 		Log:error("Invalid x coordinate. Expected a number, got " .. args[2])
 		return
 	end
-	local y = tonumber(args[2])
-	if not y and y ~= 0 then
-		Log:error("Invalid y coordinate. Expected a number, got " .. args[3])
+	local z = tonumber(args[2])
+	if not z and z ~= 0 then
+		Log:error("Invalid z coordinate. Expected a number, got " .. args[3])
 		return
 	end
-	local ring_number = tonumber(args[3])
-	if not ring_number then
-		-- Infer ring_number by checking last nil value in the strongholds list
-		for i = 1, 8 do
-			local stronghold = self.__strongholds[i]
-			if stronghold == nil then
-				ring_number = i
-				break
-			end
-		end
-		if not ring_number then
-			Log:error(
-				"Could not infer ring_number.\nEither the session strongholds are full or something really bad happened. Report this issue."
-			)
-			return
-		end
+	local ring_number = self:run_ring_command(x, z)
+	if ring_number == nil then
+		Log:error("Error running ring command.")
+		return
 	end
-	self.__strongholds[ring_number] = { x, y }
-	waywall.exec(self.__add_sh_cmd .. " " .. x .. " " .. y)
+	self.__strongholds[ring_number] = { x, z }
+	waywall.exec(self.__add_sh_cmd .. " " .. x .. " " .. z)
 	self.__output_obj = waywall.text(self:parse_current_strongholds_for_output(), self.__cfg.overlay.text)
 end
 
 function AllPortalsOverlay:remove_stronghold(args)
 	local ring_number = tonumber(args[1])
 	if not ring_number then
-		-- Infer ring number as the last element of self.__strongholds
-		ring_number = #self.__strongholds
-		if not ring_number then
+		-- Infer ring number as the last entry of self.__strongholds that is non nil
+		-- NB: Do not use ring_number = #self.__strongholds as it stops at the first nil entry.
+		ring_number = 0
+		for i = 1, 8 do
+			local stronghold = self.__strongholds[i]
+			if stronghold ~= nil and type(stronghold) == "table" and #stronghold == 2 then
+				ring_number = i
+				break
+			end
+		end
+		if not ring_number or ring_number == 0 then
 			Log:error(
 				"Could not infer ring_number.\nEither the session strongholds are full or something really bad happened. Report this issue."
 			)
@@ -230,20 +244,14 @@ function AllPortalsOverlay:check_ring(args)
 		Log:error("Invalid x coordinate. Expected a number, got " .. args[2])
 		return
 	end
-	local y = tonumber(args[2])
-	if not y and y ~= 0 then
-		Log:error("Invalid y coordinate. Expected a number, got " .. args[3])
+	local z = tonumber(args[2])
+	if not z and z ~= 0 then
+		Log:error("Invalid z coordinate. Expected a number, got " .. args[3])
 		return
 	end
-	local handle = io.popen(self.__ring_cmd .. " " .. x .. " " .. y)
-	if not handle then
-		Log:error("Ring command failed. Could not run ring command.")
-		return
-	end
-	local output = handle:read("*a")
-	handle:close()
-	if output == "" then
-		Log:error("Ring command failed. Please check the log.")
+	local output = self:run_ring_command(x, z)
+	if output == nil then
+		Log:error("Error running ring command.")
 		return
 	end
 	--- @type SceneObj

@@ -30,7 +30,7 @@ All Portals Overlay as a plugin on waywall. Watch the [demo](https://youtu.be/tv
 					completion_color = "#323232",
 				},
 				commands = {
-					add_sh = "addap", -- Command to add a stronghold. Syntax: <command_name> <x> <z> <ring_number: optional>
+					add_sh = "addap", -- Command to add a stronghold. Syntax: <command_name> <x> <z>
 					remove_sh = "rmap", -- Command to remove a stronghold. Syntax: <command_name> <ring_number: optional>
 					ring = "ringap", -- Command to check which ring a stronghold is in. Syntax: <command_name> <x> <z>
 				},
@@ -39,8 +39,10 @@ All Portals Overlay as a plugin on waywall. Watch the [demo](https://youtu.be/tv
 			hotkeys = {
 				next = "Page_Up", -- Hotkey to go to next stronghold
 				prev = "Page_Down", -- Hotkey to go to previous stronghold
-				reset = "o", -- Hotkey to reset current session (backup is saved automatically by all-portals-overlay).
-				solve = "p", -- Hotkey to run the solver.
+				reset = "F11", -- Hotkey to reset current session (backup is saved automatically by all-portals-overlay).
+				solve = "F12", -- Hotkey to run the solver.
+				show_overlay = "F9" -- Hotkey to show the overlay or the current stronghold list.
+				hide_overlay = "F10" -- Hotkey to show the overlay or the current stronghold list.
 			},
 			overlay = {
 				text = { -- Shows the list of strongholds you have entered currently.
@@ -76,6 +78,7 @@ All Portals Overlay as a plugin on waywall. Watch the [demo](https://youtu.be/tv
 ```
 #### Manually
 > You need to get [git](https://git-scm.com/) first.
+
 Run these commands in a terminal:
 ```bash
 cd ~/.config/waywall
@@ -102,7 +105,7 @@ require("ww_ap_overlay").setup(config, {
 			completion_color = "#323232",
 		},
 		commands = {
-			add_sh = "addap", -- Command to add a stronghold. Syntax: <command_name> <x> <z> <ring_number: optional>
+			add_sh = "addap", -- Command to add a stronghold. Syntax: <command_name> <x> <z>
 			remove_sh = "rmap", -- Command to remove a stronghold. Syntax: <command_name> <ring_number: optional>
 			ring = "ringap", -- Command to check which ring a stronghold is in. Syntax: <command_name> <x> <z>
 		},
@@ -111,8 +114,10 @@ require("ww_ap_overlay").setup(config, {
 	hotkeys = {
 		next = "Page_Up", -- Hotkey to go to next stronghold
 		prev = "Page_Down", -- Hotkey to go to previous stronghold
-		reset = "o", -- Hotkey to reset current session (backup is saved automatically by all-portals-overlay).
-		solve = "p", -- Hotkey to run the solver.
+		reset = "F11", -- Hotkey to reset current session (backup is saved automatically by all-portals-overlay).
+		solve = "F12", -- Hotkey to run the solver.
+		show_overlay = "F9" -- Hotkey to show the overlay or the current stronghold list.
+		hide_overlay = "F10" -- Hotkey to show the overlay or the current stronghold list.
 	},
 	overlay = {
 		text = { -- Shows the list of strongholds you have entered currently.

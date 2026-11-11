@@ -1,5 +1,3 @@
-local waywall = require("waywall")
-
 local M = {}
 
 --- @param path string | nil
